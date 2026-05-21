@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쇼핑 리스트</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 480px;
+      padding: 32px 28px;
+      height: fit-content;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      color: #1a202c;
+      margin-bottom: 24px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-row input:focus {
+      border-color: #4f46e5;
+    }
+
+    .input-row button {
+      padding: 12px 20px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .input-row button:hover {
+      background: #4338ca;
+    }
+
+    .input-row button:disabled {
+      background: #a5b4fc;
+      cursor: not-allowed;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .stats span {
+      font-size: 0.85rem;
+      color: #718096;
+    }
+
+    .clear-btn {
+      background: none;
+      border: none;
+      font-size: 0.85rem;
+      color: #e53e3e;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .clear-btn:hover {
+      background: #fff5f5;
+    }
+
+    .list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #f7fafc;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      transition: opacity 0.2s, background 0.2s;
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .list-item.checked {
+      background: #f0fff4;
+      border-color: #c6f6d5;
+    }
+
+    .list-item.checked .item-text {
+      text-decoration: line-through;
+      color: #a0aec0;
+    }
+
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #cbd5e0;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .list-item.checked .checkbox {
+      background: #48bb78;
+      border-color: #48bb78;
+    }
+
+    .checkbox svg {
+      display: none;
+      color: white;
+    }
+
+    .list-item.checked .checkbox svg {
+      display: block;
+    }
+
+    .item-text {
+      flex: 1;
+      font-size: 1rem;
+      color: #2d3748;
+      word-break: break-word;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: #cbd5e0;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .delete-btn:hover {
+      color: #e53e3e;
+      background: #fff5f5;
+    }
+
+    .empty {
+      text-align: center;
+      color: #a0aec0;
+      font-size: 0.95rem;
+      padding: 32px 0;
+    }
+
+    .loading {
+      text-align: center;
+      color: #a0aec0;
+      font-size: 0.95rem;
+      padding: 32px 0;
+    }
+
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>쇼핑 리스트</h1>
+
+    <div class="input-row">
+      <input type="text" id="itemInput" placeholder="아이템 입력..." />
+      <button id="addBtn" onclick="addItem()">추가</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="stats">
+      <span id="statsText">총 0개</span>
+      <button class="clear-btn" onclick="clearChecked()">완료 항목 삭제</button>
+    </div>
+
+    <ul class="list" id="list"></ul>
+    <p class="loading" id="loadingMsg">불러오는 중...</p>
+    <p class="empty" id="emptyMsg" style="display:none">아이템을 추가해 보세요!</p>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://vvpuualblunstdpwyjev.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2cHV1YWxibHVuc3RkcHd5amV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzYwNjEsImV4cCI6MjA5NDk1MjA2MX0._7C5OaVGGnjnjNcMxa6_7dxUIE6uJN6QVlUR_hsReRM';
+
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const input = document.getElementById('itemInput');
+    const addBtn = document.getElementById('addBtn');
+    const list = document.getElementById('list');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const loadingMsg = document.getElementById('loadingMsg');
+    const statsText = document.getElementById('statsText');
+    const errorMsg = document.getElementById('errorMsg');
+
+    let items = [];
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addItem();
+    });
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+      setTimeout(() => { errorMsg.style.display = 'none'; }, 3000);
+    }
+
+    function render() {
+      list.innerHTML = '';
+      loadingMsg.style.display = 'none';
+      emptyMsg.style.display = items.length === 0 ? 'block' : 'none';
+
+      const checked = items.filter(i => i.checked).length;
+      statsText.textContent = `총 ${items.length}개 · 완료 ${checked}개`;
+
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'list-item' + (item.checked ? ' checked' : '');
+
+        li.innerHTML = `
+          <div class="checkbox" onclick="toggleItem('${item.id}')">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <polyline points="2,7 5,10 11,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="item-text">${escapeHtml(item.text)}</span>
+          <button class="delete-btn" onclick="deleteItem('${item.id}')" title="삭제">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.293 4.293a1 1 0 011.414 0L8 6.586l2.293-2.293a1 1 0 111.414 1.414L9.414 8l2.293 2.293a1 1 0 01-1.414 1.414L8 9.414l-2.293 2.293a1 1 0 01-1.414-1.414L6.586 8 4.293 5.707a1 1 0 010-1.414z"/>
+            </svg>
+          </button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function loadItems() {
+      const { data, error } = await db
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        loadingMsg.style.display = 'none';
+        showError('데이터를 불러오지 못했습니다.');
+        return;
+      }
+      items = data;
+      render();
+    }
+
+    async function addItem() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      addBtn.disabled = true;
+      const { data, error } = await db
+        .from('shopping_items')
+        .insert({ text, checked: false })
+        .select()
+        .single();
+
+      addBtn.disabled = false;
+      if (error) { showError('추가에 실패했습니다.'); return; }
+
+      items.unshift(data);
+      input.value = '';
+      render();
+    }
+
+    async function toggleItem(id) {
+      const item = items.find(i => i.id === id);
+      const { error } = await db
+        .from('shopping_items')
+        .update({ checked: !item.checked })
+        .eq('id', id);
+
+      if (error) { showError('변경에 실패했습니다.'); return; }
+      item.checked = !item.checked;
+      render();
+    }
+
+    async function deleteItem(id) {
+      const { error } = await db
+        .from('shopping_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) { showError('삭제에 실패했습니다.'); return; }
+      items = items.filter(i => i.id !== id);
+      render();
+    }
+
+    async function clearChecked() {
+      const checkedIds = items.filter(i => i.checked).map(i => i.id);
+      if (checkedIds.length === 0) return;
+
+      const { error } = await db
+        .from('shopping_items')
+        .delete()
+        .in('id', checkedIds);
+
+      if (error) { showError('삭제에 실패했습니다.'); return; }
+      items = items.filter(i => !i.checked);
+      render();
+    }
+
+    loadItems();
+  </script>
+</body>
+</html>
