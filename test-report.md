@@ -2,7 +2,7 @@
 
 **테스트 일자:** 2026-05-22  
 **테스트 도구:** Playwright MCP  
-**대상 파일:** `shopping-list.html`  
+**대상 파일:** `index.html`  
 **테스트 환경:** 로컬 HTTP 서버 (http://127.0.0.1:8765)  
 **스크린샷:** `shopping-list-test-result.png`
 
